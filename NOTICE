@@ -1,0 +1,23 @@
+wearable-pipeline
+Copyright (C) 2026 cambridge-cognitive-architecture
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of version 3 of the GNU General Public License as published by the
+Free Software Foundation. It is distributed WITHOUT ANY WARRANTY, without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See LICENSE.
+
+wearable_pipeline/pupil.py was developed with reference to, and checked line by
+line against, the MATLAB code accompanying
+
+  Kret, M. E., & Sjak-Shie, E. E. (2019). Preprocessing pupil size data:
+  Guidelines and code. Behavior Research Methods, 51, 1336-1342.
+  https://github.com/ElioS-S/pupil-size (GPL-3.0)
+
+Changes from that code (October and November 2026):
+  - rewritten in Python, for two eyes sampled on one clock;
+  - blink events plus 500 ms, and off-head samples, set to missing;
+  - the isolated-island filter is not implemented;
+  - a single eye is shifted by half the mean between-eye difference;
+  - the range gate defaults to 1.5-9 mm, with 1-9 mm as a sensitivity.
+The authors of that code have not reviewed or endorsed this one.
