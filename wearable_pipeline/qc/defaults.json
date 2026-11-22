@@ -1,0 +1,44 @@
+{
+  "registered": {
+    "gaze_valid_min_pct": {"value": 70.0, "rule": "session valid gaze below this: WARN, a sensitivity restriction and not an exclusion"},
+    "gaze_second_valid_min_pct": {"value": 80.0, "rule": "a second counts as valid gaze at or above this share"},
+    "analysable_min_minutes": {"value": 60.0, "rule": "less analysable natural work: FAIL, a session exclusion"},
+    "sync_min_usable": {"value": 1, "rule": "fewer usable sync checks: FAIL, the session is excluded if sync cannot be recovered by hand"},
+    "pupil_range_mm": {"value": [1.5, 9.0], "rule": "samples outside are missing"},
+    "post_blink_ms": {"value": 500.0, "rule": "masked after every blink"}
+  },
+  "operational": {
+    "worn_pct": {"value": {"pass": 95.0, "warn": 80.0}, "rule": "share of samples worn"},
+    "pupil_in_range_pct": {"value": {"pass": 90.0, "warn": 75.0}, "rule": "per eye, before masking"},
+    "gap_ms": {"value": 50.0, "rule": "a longer interval is a gap"},
+    "gap_total_fail_s": {"value": 1.0, "rule": "no gap: PASS; less in total: WARN; otherwise FAIL"},
+    "long_gap_s": {"value": 10.0, "rule": "a long gap in gaze"},
+    "long_gaps_pass_max": {"value": 2, "rule": "more long gaps: WARN"},
+    "span_s": {"value": {"pass": 5.0, "warn": 15.0}, "rule": "a stream may start late or end early by this much"},
+    "span_event_warn_s": {"value": 90.0, "rule": "event streams may be quiet this long at either edge"},
+    "part_boundary_s": {"value": {"pass": 1.0, "warn": 30.0}, "rule": "time lost where a recorder started a new file"},
+    "heart_tail_note_s": {"value": 120.0, "rule": "heart recorder stopped up to this much early: WARN; more, or a late start: FAIL"},
+    "log_tail_note_s": {"value": 120.0, "rule": "log ends up to this much after the recording: WARN; more: FAIL"},
+    "marker_s": {"value": 2.0, "rule": "marker further from the recording start: WARN, never FAIL"},
+    "sync_expected": {"value": 2, "rule": "a different number of logged sync checks: FAIL"},
+    "sync_window_s": {"value": [-0.2, 5.0], "rule": "where a sync flash may be, relative to the logged tap"},
+    "sync_drift_max_ms_per_hour": {"value": 500.0, "rule": "more drift, or a baseline too short to tell: WARN"},
+    "streams": {
+      "rule": "rate: absolute floors in Hz, or relative deviation from nominal",
+      "value": {
+        "gaze":        {"group": "eye_tracker", "nominal_hz": 200.0, "pass_hz": 190.0, "warn_hz": 150.0, "gaps": "long"},
+        "eye_state":   {"group": "eye_tracker", "nominal_hz": 200.0, "pass_hz": 190.0, "warn_hz": 150.0, "gaps": "none", "same_clock_as": "gaze"},
+        "imu":         {"group": "eye_tracker", "nominal_hz": 110.0, "pass_dev": 0.10, "warn_dev": 0.20, "gaps": "short"},
+        "scene_video": {"group": "eye_tracker", "nominal_hz": 30.0, "pass_dev": 0.02, "warn_dev": 0.05, "gaps": "short"},
+        "eye_video":   {"group": "eye_tracker", "nominal_hz": 200.0, "pass_dev": 0.02, "warn_dev": 0.05, "gaps": "short"},
+        "ecg":         {"group": "heart", "nominal_hz": 130.0, "pass_dev": 0.05, "warn_dev": 0.15, "gaps": "short"},
+        "acc":         {"group": "heart", "nominal_hz": 50.0, "pass_dev": 0.05, "warn_dev": 0.15, "gaps": "none"}
+      }
+    }
+  },
+  "unset": {
+    "sync_residual_ms": {"value": null, "rule": "reported; set {pass, warn} in ms to grade it"},
+    "pupil_after_mask_pct": {"value": null, "rule": "reported; set {pass, warn} in % to grade it"},
+    "gaze_seconds_valid_pct": {"value": null, "rule": "reported; set {pass, warn} in % to grade it"}
+  }
+}
