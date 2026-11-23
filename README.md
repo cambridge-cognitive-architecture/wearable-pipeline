@@ -63,10 +63,10 @@ For your own data, fill a [`qc.Session`](wearable_pipeline/qc/session.py) with a
 
 | Section | Checks |
 |---|---|
-| Sync | checks logged, offset of each, residual about their median, drift end to end |
+| Sync | checks logged, offset of each, residual about their median, drift end to end by onset |
 | Worn | share of samples worn |
 | Gaze | valid share of the samples expected, and of seconds |
-| Pupil | share in range per eye, and what is left after blinks + 500 ms and time not worn |
+| Pupil | share in range per eye while worn, and what is left after blinks + 500 ms and time not worn |
 | Recorder gaps | short gaps, long gaps in gaze, time lost between recorder files |
 | Breaks | logged breaks, unpaired ones, analysable work after removing them |
 | Sampling rates | each module against nominal, shared clocks, gaze against the eye camera |
@@ -96,7 +96,7 @@ The registration does not define the denominator of session-level valid gaze. He
 | Key | Default | Rule |
 |---|---|---|
 | `worn_pct` | pass 95, warn 80 | share of samples worn |
-| `pupil_in_range_pct` | pass 90, warn 75 | per eye, before masking |
+| `pupil_in_range_pct` | pass 90, warn 75 | per eye, over worn samples, before the blink mask |
 | `gap_ms` | 50 | a longer interval is a gap |
 | `gap_total_fail_s` | 1 | no gap: PASS; less in total: WARN; otherwise FAIL |
 | `long_gap_s` | 10 | a long gap in gaze |
@@ -107,9 +107,10 @@ The registration does not define the denominator of session-level valid gaze. He
 | `heart_tail_note_s` | 120 | heart recorder stopped up to this much early: WARN; more, or a late start: FAIL |
 | `log_tail_note_s` | 120 | log ends up to this much after the recording: WARN; more: FAIL |
 | `marker_s` | 2 | marker further from the recording start: WARN, never FAIL |
-| `sync_expected` | 2 | a different number of logged sync checks: FAIL |
+| `sync_expected` | 2 | a different number of logged sync checks: WARN |
 | `sync_window_s` | -0.2 to 5 | where a sync flash may be, relative to the logged tap |
-| `sync_drift_max_ms_per_hour` | 500 | more drift, or a baseline too short to tell: WARN |
+| `sync_drift_max_ms_per_hour` | 500 | more drift: WARN; a drift inside the measurement floor passes as within resolution |
+| `sync_drift_min_baseline_h` | 1 | a shorter baseline, or a floor at or above the drift limit: WARN, not resolvable |
 | `streams` | table below | rate: absolute floors in Hz, or relative deviation from nominal |
 
 | Stream | Nominal | PASS | WARN, otherwise FAIL |
@@ -139,7 +140,7 @@ report = qc.run_qc(session, {"worn_pct": {"pass": 90, "warn": 75}, "streams": {"
 ### Limits
 
 - One recording at a time: a recording stopped and restarted needs one report for each.
-- A drift indistinguishable from zero passes only if the baseline is long enough to have seen 500 ms/h.
+- Drift is fitted end to end by onset, between the earliest and latest usable flash; checks in between are recorded, not fitted. Its floor is one scene frame at each end over that baseline. The drift is graded against the 500 ms/h limit, never against the floor: inside the floor it passes as within resolution. It is not resolvable, a WARN, only if the baseline is under an hour or the floor is at or above the limit.
 - Logger times are compared as logged. The sync offset is reported and not applied, as it also holds the delay between tap and screen.
 - A pass says the recorders worked, not that the measures are valid.
 

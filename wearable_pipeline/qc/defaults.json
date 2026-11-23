@@ -9,7 +9,7 @@
   },
   "operational": {
     "worn_pct": {"value": {"pass": 95.0, "warn": 80.0}, "rule": "share of samples worn"},
-    "pupil_in_range_pct": {"value": {"pass": 90.0, "warn": 75.0}, "rule": "per eye, before masking"},
+    "pupil_in_range_pct": {"value": {"pass": 90.0, "warn": 75.0}, "rule": "per eye, over worn samples, before the blink mask"},
     "gap_ms": {"value": 50.0, "rule": "a longer interval is a gap"},
     "gap_total_fail_s": {"value": 1.0, "rule": "no gap: PASS; less in total: WARN; otherwise FAIL"},
     "long_gap_s": {"value": 10.0, "rule": "a long gap in gaze"},
@@ -20,9 +20,10 @@
     "heart_tail_note_s": {"value": 120.0, "rule": "heart recorder stopped up to this much early: WARN; more, or a late start: FAIL"},
     "log_tail_note_s": {"value": 120.0, "rule": "log ends up to this much after the recording: WARN; more: FAIL"},
     "marker_s": {"value": 2.0, "rule": "marker further from the recording start: WARN, never FAIL"},
-    "sync_expected": {"value": 2, "rule": "a different number of logged sync checks: FAIL"},
+    "sync_expected": {"value": 2, "rule": "a different number of logged sync checks: WARN"},
     "sync_window_s": {"value": [-0.2, 5.0], "rule": "where a sync flash may be, relative to the logged tap"},
-    "sync_drift_max_ms_per_hour": {"value": 500.0, "rule": "more drift, or a baseline too short to tell: WARN"},
+    "sync_drift_max_ms_per_hour": {"value": 500.0, "rule": "more drift: WARN; a drift inside the measurement floor passes as within resolution"},
+    "sync_drift_min_baseline_h": {"value": 1.0, "rule": "a shorter baseline, or a floor at or above the drift limit: WARN, not resolvable"},
     "streams": {
       "rule": "rate: absolute floors in Hz, or relative deviation from nominal",
       "value": {

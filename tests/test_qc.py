@@ -231,9 +231,65 @@ def test_short_baseline_cannot_pass_drift(session):
     assert status(qc.run_qc(session), "sync.drift") == "WARN"
 
 
-def test_wrong_number_of_syncs_fails(session):
-    session.syncs.pop()
-    assert status(qc.run_qc(session), "sync.logged") == "FAIL"
+def drift_check(report):
+    return next(c for c in report["checks"] if c["id"] == "sync.drift")
+
+
+@pytest.mark.parametrize("n", [1, 3])
+def test_an_unexpected_number_of_syncs_warns_not_fails(session, n):
+    session.syncs = [qc.SyncCheck(20 + 2000 * i, 20.3 + 2000 * i) for i in range(n)]
+    assert status(qc.run_qc(session), "sync.logged") == "WARN"
+
+
+def test_drift_inside_the_floor_passes_as_within_resolution(session):
+    # 20 ms over about 1.4 h is under the floor of one frame at each end
+    session.syncs = [qc.SyncCheck(20, 20.30), qc.SyncCheck(5200, 5200.32)]
+    report = qc.run_qc(session)
+    d = drift_check(report)
+    assert d["status"] == "PASS" and "within resolution" in d["shown"]
+    assert report["details"]["sync"]["drift_resolvable"] is True
+
+
+def test_drift_above_the_floor_is_graded_against_the_limit(session):
+    session.syncs = [qc.SyncCheck(20, 20.3), qc.SyncCheck(5200, 5200.7)]   # about 280 ms/h
+    d = drift_check(qc.run_qc(session))
+    assert d["status"] == "PASS" and "within resolution" not in d["shown"]
+
+
+def test_a_baseline_under_an_hour_is_not_resolvable(session):
+    # 0.9 h: the floor (about 74 ms/h) is well under the limit, the baseline is still too short
+    session.syncs = [qc.SyncCheck(20, 20.3), qc.SyncCheck(3260, 3260.3)]
+    report = qc.run_qc(session)
+    d = drift_check(report)
+    assert d["status"] == "WARN" and d["shown"] == "not resolvable"
+    assert report["details"]["sync"]["drift_resolvable"] is False
+
+
+def test_a_floor_at_the_limit_is_not_resolvable(session):
+    # over an hour, but a limit tighter than the measurement can resolve
+    session.syncs = [qc.SyncCheck(20, 20.3), qc.SyncCheck(5200, 5200.3)]
+    d = drift_check(qc.run_qc(session, {"sync_drift_max_ms_per_hour": 40.0}))
+    assert d["status"] == "WARN" and d["shown"] == "not resolvable"
+
+
+def test_three_syncs_fit_end_to_end_by_onset(session):
+    # the middle check is far off the line; logged out of order on purpose
+    session.syncs = [qc.SyncCheck(5200, 5200.7), qc.SyncCheck(2600, 2604.0), qc.SyncCheck(20, 20.3)]
+    report = qc.run_qc(session)
+    hours = (5200.7 - 20.3) / 3600
+    assert report["details"]["sync"]["drift_ms_per_hour"] == pytest.approx(400 / hours, abs=0.1)
+    assert "between" in drift_check(report)["note"]
+
+
+def test_not_worn_time_is_left_out_of_pupil_range(session, clean):
+    t = session.streams["eye_state"].t
+    off = (t > 1000) & (t < 2500)                 # glasses off for 25 minutes
+    session.worn = session.worn & ~off
+    session.pupil_left[off] = np.nan
+    report = qc.run_qc(session)
+    assert status(report, "pupil.left.range") == "PASS"
+    assert value(report, "pupil.left.range") == pytest.approx(value(clean, "pupil.left.range"), abs=0.5)
+    assert status(report, "worn.pct") != "PASS"
 
 
 # gaze, worn, pupil

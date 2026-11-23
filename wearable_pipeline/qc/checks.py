@@ -147,10 +147,43 @@ def _streams(r: _Report, s: Session) -> dict[str, np.ndarray]:
     return usable
 
 
+def drift_grade(pairs, c) -> tuple:
+    """Clock drift from (logged_s, detected_s) pairs, graded against the limit.
+
+    The fit is end to end by onset: the earliest and latest detected flash,
+    with any checks in between recorded but not fitted. The floor is the
+    resolution of the measurement, one scene frame at each end over the
+    baseline. The drift is graded against the limit and never against the
+    floor: a drift inside the floor passes as within resolution. It is not
+    resolvable only when the baseline is shorter than the minimum or the floor
+    is itself at or above the limit.
+    Returns drift, floor, hours, resolvable, status, shown, note.
+    """
+    pairs = sorted(pairs, key=lambda p: p[1])
+    (l0, d0), (l1, d1) = pairs[0], pairs[-1]
+    hours = (d1 - d0) / 3600
+    limit, min_h = c["sync_drift_max_ms_per_hour"], c["sync_drift_min_baseline_h"]
+    scene = c["streams"].get("scene_video", {}).get("nominal_hz", 30.0)
+    floor = 2000 / scene / hours if hours > 0 else float("inf")
+    drift = 1000 * ((d1 - l1) - (d0 - l0)) / hours if hours > 0 else None
+    between = f"; {len(pairs) - 2} check(s) between recorded, not fitted" if len(pairs) > 2 else ""
+    if hours < min_h or floor >= limit:
+        why = (f"baseline {hours:.2f} h is under {min_h:g} h" if hours < min_h
+               else f"floor {floor:.0f} ms/h is at or above the limit")
+        return drift, floor, hours, False, WARN, "not resolvable", why + between
+    shown = f"{drift:+.0f} ± {floor:.0f} ms/h"
+    if abs(drift) <= floor:
+        return drift, floor, hours, True, PASS, shown + ", within resolution", \
+            f"over {hours:.2f} h" + between
+    return drift, floor, hours, True, PASS if abs(drift) <= limit else WARN, shown, \
+        f"over {hours:.2f} h" + between
+
+
 def _sync(r: _Report, s: Session) -> None:
     c, (low, high) = r.c, r.c["sync_window_s"]
     n = len(s.syncs)
-    r.add("sync.logged", "sync checks logged", PASS if n == c["sync_expected"] else FAIL, n,
+    # Another count is worth a look, not a fault: the fit uses whatever is usable.
+    r.add("sync.logged", "sync checks logged", PASS if n == c["sync_expected"] else WARN, n,
           str(n), str(c["sync_expected"]), "sync_expected")
     rows, usable = [], []
     for i, check in enumerate(sorted(s.syncs, key=lambda x: x.logged_s), 1):
@@ -188,28 +221,22 @@ def _sync(r: _Report, s: Session) -> None:
         for (_, row), residual in zip(usable, fit.residual_s):
             row["residual_ms"] = _number(1000 * residual, 1)
     worst = float(1000 * np.abs(fit.residual_s).max()) if fit else None
-    drift = uncertainty = None
-    status, shown = WARN, "needs two checks"
-    if len(usable) >= 2:  # end to end; checks between are recorded, not fitted
-        first, last = usable[0][0], usable[-1][0]
-        hours = (last.detected_s - first.detected_s) / 3600
-        if hours > 0:
-            change = (last.detected_s - last.logged_s) - (first.detected_s - first.logged_s)
-            drift = 1000 * change / hours
-            scene = c["streams"].get("scene_video", {}).get("nominal_hz", 30.0)
-            uncertainty = 2000 / scene / hours  # one video frame at each end
-            limit = c["sync_drift_max_ms_per_hour"]
-            status = PASS if uncertainty <= limit and abs(drift) <= limit else WARN
-            shown = f"{drift:.0f} ± {uncertainty:.0f} ms/h"
+    drift = uncertainty = hours = None
+    resolvable = False
+    status, shown, note = WARN, "needs two checks", "drift needs two usable checks"
+    if len(usable) >= 2:
+        drift, uncertainty, hours, resolvable, status, shown, note = drift_grade(
+            [(x.logged_s, x.detected_s) for x, _ in usable], c)
     r.add("sync.residual", "largest sync residual",
           rules.at_most(worst, c["sync_residual_ms"]) if len(usable) >= 2 else INFO,
           _number(worst, 1), _show(worst, " ms", 0) if len(usable) >= 2 else "needs two checks",
           r.limits("sync_residual_ms", "<=", " ms"), "sync_residual_ms")
     r.add("sync.drift", "clock drift", status, _number(drift, 1), shown,
-          f"<= {c['sync_drift_max_ms_per_hour']:g} ms/h", "sync_drift_max_ms_per_hour")
+          f"<= {c['sync_drift_max_ms_per_hour']:g} ms/h", "sync_drift_max_ms_per_hour", note=note)
     r.details["sync"] = dict(checks=rows, offset_ms=_number(1000 * fit.offset_s if fit else None, 1),
                              drift_ms_per_hour=_number(drift, 1),
-                             drift_uncertainty_ms_per_hour=_number(uncertainty, 1))
+                             drift_uncertainty_ms_per_hour=_number(uncertainty, 1),
+                             drift_baseline_h=_number(hours, 3), drift_resolvable=bool(resolvable))
 
 
 def _worn_and_gaze(r: _Report, s: Session, usable: dict) -> None:
@@ -271,7 +298,10 @@ def _pupil(r: _Report, s: Session, usable: dict) -> None:
     low, high = c["pupil_range_mm"]
     for eye, d in eyes.items():
         ok = np.isfinite(d) & (d >= low) & (d <= high)
-        before, after = 100 * float(ok.mean()), 100 * float((ok & ~out).mean())
+        on = worn if worn is not None else np.ones(ok.shape, bool)
+        # Time with the glasses off says nothing about the pupil, so it is left out here.
+        before = 100 * float(ok[on].mean()) if on.any() else None
+        after = 100 * float((ok & ~out).mean())
         r.add(f"pupil.{eye}.range", f"{eye} in {low:g}-{high:g} mm",
               rules.at_least(before, c["pupil_in_range_pct"]), _number(before), _show(before, "%"),
               r.limits("pupil_in_range_pct", ">=", "%"), "pupil_in_range_pct")
