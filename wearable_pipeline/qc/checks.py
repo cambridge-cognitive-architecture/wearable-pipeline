@@ -23,6 +23,11 @@ def _number(x, digits: int = 3):
     return round(float(x), digits) if x is not None and np.isfinite(x) else None
 
 
+def _signed(x: float, digits: int = 1) -> str:
+    """One explicit sign, never two, and no negative zero."""
+    return f"{round(float(x), digits) + 0.0:+.{digits}f}"
+
+
 def _show(x, unit: str = "", digits: int = 1) -> str:
     return "none" if x is None or not np.isfinite(x) else f"{x:.{digits}f}{unit}"
 
@@ -85,7 +90,7 @@ def _streams(r: _Report, s: Session) -> dict[str, np.ndarray]:
             r.add(f"alignment.{name}.span", f"{name}: spans the recording",
                   rules.span(head, tail, c["span_s"], stream.event, c["span_event_warn_s"]),
                   dict(head_s=_number(head), tail_s=_number(tail)),
-                  f"+{head:.1f} / -{tail:.1f} s", f"within {limit:g} s", key)
+                  f"{_signed(head)} / {_signed(-tail)} s", f"within {limit:g} s", key)
 
         if stream.parts:
             if any(not 0 < i < raw.size for i in stream.parts) or sorted(set(stream.parts)) != list(stream.parts):
@@ -370,7 +375,7 @@ def _alignment(r: _Report, s: Session, usable: dict) -> None:
         r.add("alignment.log", "log inside the recording",
               rules.log_window(events[0].t < 0, after, measured, len(before), c["log_tail_note_s"]),
               dict(start_s=_number(events[0].t), ends_after_s=_number(after), measured_before=measured),
-              f"+{events[0].t:.0f} / -{-after:.0f} s" if after <= 0 else f"ends {after:.0f} s after",
+              f"{_signed(events[0].t, 0)} / {_signed(after, 0)} s" if after <= 0 else f"ends {after:.0f} s after",
               "inside", "log_tail_note_s")
     else:
         r.add("alignment.log", "field log present", FAIL, 0, "no events", "present")

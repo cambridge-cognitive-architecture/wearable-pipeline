@@ -423,3 +423,16 @@ def test_report_holds_no_outcome_path_or_date(faulty):
     for word in ("fixation_ms", "pupil_mm\"", "median_pupil", "blinks_per_min", "entropy", "saccade", "/users/"):
         assert word not in text
     assert "20:" not in text and "t00:" not in text
+
+
+def test_shown_values_never_carry_two_signs(faulty, clean):
+    for report in (faulty, clean):
+        for c in report["checks"]:
+            shown = str(c["shown"])
+            assert "--" not in shown and "+-" not in shown and "-+" not in shown, (c["id"], shown)
+            assert "-0.0 " not in shown + " " and "-0 " not in shown + " ", (c["id"], shown)
+
+
+def test_signed_formatting():
+    from wearable_pipeline.qc.checks import _signed
+    assert [_signed(x) for x in (0.03, -0.03, -1.26, 2)] == ["+0.0", "+0.0", "-1.3", "+2.0"]
