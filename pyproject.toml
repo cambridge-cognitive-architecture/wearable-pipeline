@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wearable-pipeline"
+version = "0.2.0"
+description = "Aligns eye tracking, ECG and field logs on one clock; pupil and HRV preprocessing."
+readme = "README.md"
+license = "GPL-3.0-only"
+authors = [{ name = "Salome Egli" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=2.0", "scipy>=1.11", "pandas>=2.2", "matplotlib>=3.8"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["wearable_pipeline*"]
+
+[tool.setuptools.package-data]
+"wearable_pipeline.qc" = ["defaults.json"]

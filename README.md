@@ -20,6 +20,8 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+or as a package: `pip install "wearable-pipeline @ git+https://github.com/cambridge-cognitive-architecture/wearable-pipeline"`.
+
 ## Quick example
 
 ```sh
